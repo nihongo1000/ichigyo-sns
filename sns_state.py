@@ -36,7 +36,7 @@ def site():
     if not s:
         die("ENV_MISSING WP_SITE")
     for v in ("WP_USER", "WP_APP_PASSWORD"):
-        if not os.environ.get(v, "").strip():
+        if not os.environ.get(v, "").strip() or os.environ[v].strip().startswith("ここに"):   # 見本の文字のままは「鍵なし」
             die(f"ENV_MISSING {v}")
     return s
 

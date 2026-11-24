@@ -1,12 +1,12 @@
 # SNS自動投稿：リンクから始まったクラウドの Claude への指示書
 
-版: 2026-11-16 v1.2（この行が無い古いファイルは使わない）
+版: 2026-11-24 v1.3（この行が無い古いファイルは使わない）
 
 あなた（Claude）は claude.ai/code のセッションの中にいる。お客さん（ブログの持ち主）は、渡されたリンクを押して Enter を押しただけ。
 最初の文に **合言葉** が入っている（2回目からは環境の設定 `SNS_PASS` に入っている）。このリポジトリ（公開）には、この指示書・鍵のかかった部品 `sns_set.enc`・記録の道具 `sns_state.py` だけがある。
 お客さんのパソコンは使わない。お客さんにファイルを扱わせない。**お客さん用の GitHub の置き場所は作らない（頼まない）。** 記録はお客さんの WordPress の非公開ページ1枚にしまう（`sns_state.py`）。
 
-できること：お客さんの WordPress の記事に入っている **4コマ漫画** を使って、毎日 **X・スレッズ・インスタ・Facebookページ** に1本ずつ自動で投稿する（使うSNSはお客さんが選ぶ）。スレッズを使うなら、夜にもう1本、文字だけの「失敗あるある」を出す。
+できること：お客さんの WordPress の記事に入っている **4コマ漫画**（4コマが無い記事は **アイキャッチ画像**）を使って、毎日 **X・スレッズ・インスタ・Facebookページ** に1本ずつ自動で投稿する（使うSNSはお客さんが選ぶ）。スレッズを使うなら、夜にもう1本、文字だけの「失敗あるある」を出す。
 
 ## 0. いちばん大事な決まり（どの手順より優先）
 - **このセッションでは、最初から最後まで日本語だけを使う。** お客さんへの返事・作業中のひとりごと・途中経過・定期実行の報告のどれも、英語にしない（英語が1文でも出たら、次の文から日本語に戻す）。
@@ -26,7 +26,9 @@
 - **開いてもらうタブは1つずつ。『生成』『許可』のボタンは1回だけ押してもらう**（何度も押すと許可の窓が重なって、どれに答えればよいか分からなくなる）。窓が出なければ10秒待ってもらい、それでも出なければ写真を頼む。
 - **鍵は、貼って保存したあとに新しく開いた画面でしか読めない**（貼る前から開いている画面には入らない）。だから鍵を貼ったら、必ず6章の続きのリンク（新しい画面）で確かめる。今の画面で「鍵が無い」と出ても、作り直させない。
 - 投稿は外に出るもの。**URL を本文に入れてよいのは Facebookページだけ。** いいね・フォロー・返信・DM の自動化はしない。1日の回数（昼1回・夜1回）を超えて出さない。
-- 作業フォルダは `/home/user/sns-work`（毎回 R章で作り直す）。**シェルの変数（`$W`・`$R`・`$K`）は次の操作に持ち越されない。** 毎回の命令の先頭に R章の「場所の決め方」の1行を付けるか、`/home/user/sns-work` などを直接書く。進み具合は `$W/STATE.md` に `DONE <章>` で足し、区切りごとに `python3 -I sns_state.py push $W` で WordPress にしまう（`STATE_SAVED` が出ること）。始めるときは必ず R章で取り出して読み、終わっていない章から進める。
+- 場所はいつも同じ：部品は `/tmp/snskit`（以下 `$R`）、作業フォルダは `/home/user/sns-work`（以下 `$W`。毎回 R章で作り直す）。**シェルの変数は次の操作に持ち越されない**ので、命令ではこの2つを直接書く（`ROUTINE.md` の `$K` も `/home/user/sns-work`）。
+- **最初の文に `SNS_KIT_BRANCH=〈枝の名前〉` があるとき（作り手のテスト用）**は、R章の前に毎回 `export SNS_KIT_BRANCH=〈枝の名前〉` を付け、4章の環境の設定にも同じ名前と値で入れ、6章の続きのリンクの文にもそのまま付ける。無ければ何もしない。
+- **予約（定期実行）で動いたときは、R章が終わったらすぐ、止めてあるかを見る**：`[ -f /home/user/sns-work/sns_off.txt ] && echo SNS_STOPPED`。`SNS_STOPPED` が出たら、**何もせずに終わる**（投稿しない・お客さんに何も書かない・記録もしまわない）。止める・再開する言葉は 10-1。お客さんが自分で頼んだ1本（「今すぐ1本出して」）は、止めてあっても出す。進み具合は `$W/STATE.md` に `DONE <章>` で足し、区切りごとに `python3 -I sns_state.py push $W` で WordPress にしまう（`STATE_SAVED` が出ること）。始めるときは必ず R章で取り出して読み、終わっていない章から進める。
 
 ## 1. 部品を開ける（何も聞かずに最初にやる）
 R章の手順を、合言葉を最初の文から取って実行する（`SNS_PASS` がまだ環境に無いため）。この時点では鍵が無いので、R章の 4（記録を取り出す）は飛ばす。`SET_OK` が出なければ、お客さんへ「合言葉が違うようです。受け取ったリンクを、もう一度押してください」とだけ書いて止まる。
@@ -34,48 +36,55 @@ R章の手順を、合言葉を最初の文から取って実行する（`SNS_PA
 
 ## R. 毎回の準備（1章・7章・定期実行のすべての最初）
 ```bash
-# 0. 場所の決め方（この1行は、R章のあとの命令でも毎回先頭に付ける。変数は次の操作に残らないため）
-R=$(git rev-parse --show-toplevel 2>/dev/null); [ -f "$R/sns_set.enc" ] || R=$(dirname "$(find /home/user / -maxdepth 4 -name sns_set.enc -not -path "/proc/*" 2>/dev/null | head -1)"); W=/home/user/sns-work
-cd "$R" && { git fetch -q origin main && git reset -q --hard origin/main && echo KIT_LATEST || echo KIT_NOT_UPDATED; }
+# 0. 最新の手順書と部品を、公開の置き場所から直接 /tmp/snskit に取る（画面につながっているリポジトリは使わない・動かさない）
+rm -rf /tmp/snskit /tmp/snskitrepo && mkdir -p /tmp/snskit /home/user; F='SETUP_LINK.md sns_state.py sns_set.enc'; if git clone -q --depth 1 -b "${SNS_KIT_BRANCH:-main}" https://github.com/nihongo1000/ichigyo-sns.git /tmp/snskitrepo && (cd /tmp/snskitrepo && cp $F /tmp/snskit/); then echo KIT_LATEST; else L=$(dirname "$(ls /home/user/ichigyo-sns/sns_set.enc /home/user/*/sns_set.enc "$(git rev-parse --show-toplevel 2>/dev/null)/sns_set.enc" 2>/dev/null | head -1)"); (cd "$L" && cp $F /tmp/snskit/) && echo KIT_NOT_UPDATED; fi; ls /tmp/snskit
 python3 -m pip install -q requests pillow numpy 2>/dev/null
 rm -rf /tmp/snsset && mkdir -p /tmp/snsset
-# 1. 合言葉：2回目からは環境の SNS_PASS。環境に無いとき（初回など）は export SNS_PASS='<最初の文の合言葉>'（表示しない）
-openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in sns_set.enc -out /tmp/snsset/set.zip -pass env:SNS_PASS 2>/dev/null
+# 1. 合言葉：2回目からは環境の SNS_PASS。環境に無いとき（初回など）、または下の openssl が環境の値で失敗したときは export SNS_PASS='<最初の文の合言葉>'（表示しない）でもう一度
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in /tmp/snskit/sns_set.enc -out /tmp/snsset/set.zip -pass env:SNS_PASS 2>/dev/null
 python3 -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall('/tmp/snsset')" /tmp/snsset/set.zip && echo SET_OK
 # 2. 作業フォルダ（部品の初期状態）
-W=/home/user/sns-work; rm -rf $W && cp -r /tmp/snsset/sns_set $W && cp "$R/SETUP_LINK.md" $W/
-# 3. 日本語の文字（インスタの6枚組に使う。無くても部品が自分で探す）
+rm -rf /home/user/sns-work && cp -r /tmp/snsset/sns_set /home/user/sns-work && cp /tmp/snskit/SETUP_LINK.md /home/user/sns-work/
+# 3. 日本語の文字（インスタの組の画像に使う。無くても部品が自分で探す）
 fc-list :lang=ja | grep -qiE 'ipa|noto|takao' || apt-get install -y -q fonts-ipafont-gothic >/dev/null 2>&1 || true
 # 4. 記録を取り出す（ブログの鍵が入ってから。NO_STATE はまだ何もしまっていないだけ）
-python3 -I "$R/sns_state.py" pull $W; cat $W/STATE.md 2>/dev/null
+python3 -I /tmp/snskit/sns_state.py pull /home/user/sns-work; cat /home/user/sns-work/STATE.md 2>/dev/null
 ```
-- 1行目で `KIT_LATEST` が出なければ、もう一度だけ試し、だめなら古い手順のまま進めて報告に1行。**このリポジトリには書き込まない（push しない・枝を作って送らない）。**
+- 1行目で `KIT_LATEST` が出なければ、もう一度だけ試し、だめなら古い手順のまま進めて報告に1行。R章のあとは、いつも `/tmp/snskit/SETUP_LINK.md`（いちばん新しい手順書）を正として読む。**このリポジトリには書き込まない（push しない・枝を作って送らない）。**
 - 部品の中身：`ROUTINE.md`（毎回の投稿の手順。`$K` は `$W` と読む）・`RULES.md`（書き方のルール。8章でこのブログ用に埋める）・`config.template.json`／`config.example.json`（8章で `config.json` を作る）・`POSTED.md`（投稿の記録）・`examples/`（4つのSNSの文の見本）・`scripts/`（`check_keys.py`・`pick_post.py`・`carousel.py`・`xpost.py`・`meta.py`・`wpmedia.py` など）。
-- 終わりは必ず、場所の決め方の1行を付けて：`python3 -I "$R/sns_state.py" push $W`（`STATE_SAVED` が出なければ失敗として報告）。
-- `ROUTINE.md` の `$K` は `/home/user/sns-work` と書きかえて実行する。
+- 終わりは必ず：`python3 -I /tmp/snskit/sns_state.py push /home/user/sns-work`（`STATE_SAVED` が出なければ失敗として報告）。
+- `ROUTINE.md` の `$K` は `/home/user/sns-work` と書きかえて実行する。4コマが無い記事の見本は `examples/eyecatch/`。
 
 ## 3. 最初の1通（1章が終わったらすぐ）
 「ここから先は私が自動で進めます。最初に、3つだけ教えてください。
 1. 4コマが入っているブログのアドレス（例：https://example.com/）
 2. ブログの管理画面にログインするときの名前（ユーザー名。画面に出る名前ではなく、ログインに使う名前）
-3. 使うSNSを番号で（いくつでも）：①X ②スレッズ ③インスタ ④Facebookページ。分からなければ『おまかせ』（②③④の3つにします。X は投稿1件ごとに約2円かかるため）
+3. 自動で投稿したいSNSを、番号で選んでください（いくつでも。選んだものだけ設定します）
+　① スレッズ（無料）
+　② インスタ（無料）
+　③ Facebookページ（無料）
+　④ X（旧Twitter）：X の決まりで、投稿1件ごとに約2円かかります（前払い。5ドルで約300回分。クレジットカードが要ります）
+　分からなければ『おまかせ』と書いてください（無料の①②③にします）。X は、あとからいつでも足せます。
 下の枠に書いて送ってください」
+- 選ばれたSNSだけを設定し、選ばれたSNSにだけ投稿する。選ばれなかったSNSの鍵は作らせない・案内しない。
+- **番号の読み方に注意**：①スレッズ＝threads、②インスタ＝instagram、③Facebookページ＝facebook、④X＝x。
 - 答えが来たら〈環境の名前〉（4章）を決め、`list_environments` で同じ名前の環境がもうあるか確かめる。**あれば作り直し**：4章・5章は飛ばして、6章の続きのリンクだけ渡す（11章）。
 - 答えは環境の設定に入れない。1行にまとめて覚えておき（例：`SNS=threads,instagram,facebook`）、6章の続きのリンクの文の最後に `答え: 〈その1行〉` として付ける。7章で `$W/ANSWERS.md` に書き写す。
-- 「おまかせ」は threads・instagram・facebook。使わないSNSは8章で `config.json` の `skip_platforms` に入れる（x / threads / instagram / facebook）。
+- 「おまかせ」や答えにSNSが書かれていないときは threads・instagram・facebook（聞き直さない。選んだことを1行で伝える）。使わないSNSは8章で `config.json` の `skip_platforms` に入れる（x / threads / instagram / facebook）。
 - インスタとスレッズは、インスタのアカウントが「プロアカウント」で Facebookページとつながっている必要がある（5-3 で案内する）。インスタを選んで Facebookページを選ばなかったときも、5-3 の鍵は要る（同じ鍵で投稿するため）。
 
 ## 4. 通信の設定を作る（お客さんは許可のボタンだけ）
-1. 予告：「このあと『許可』の枠が出ます。中のボタン（『許可』『Approve』など）を押してください」
+1. 予告：「このあと確認の枠が出ます。いちばん下までスクロールして、黒い『環境を作成』のボタンを押してください（『許可』『Approve』と出ていれば、それを押してください）」
 2. `create_environment`：名前は「sns 〈ドメイン〉」（例：sns example.com。`https://`・`www.`・最後の / は付けない）。以下この名前を〈環境の名前〉と書く。scope personal、`switch_session` は none。
    - 通信先：ブログのドメイン（`www.` 付きで動いているなら両方）、`graph.facebook.com`、`graph.threads.net`、`graph.instagram.com`、`api.x.com`、`upload.twitter.com`（使わないSNSの分も入れておく。あとで増やせるように）。パッケージの取得は許可したまま
-   - 設定：`WP_SITE`（https://〜、最後の / なし）、`WP_USER`、`SNS_PASS`（合言葉。**必ずこの枠で入れる。お客さんに打ち込ませない**。お客さん自身の開始リンクにすでに入っている文字なので、許可の枠に出ても問題ない。チャットの文には書かない）、それから鍵の空の欄：`WP_APP_PASSWORD`、`THREADS_TOKEN`、`FB_GRAPH_TOKEN`、`X_API_KEY`、`X_API_SECRET`、`X_ACCESS_TOKEN`、`X_ACCESS_TOKEN_SECRET`（使わないSNSの欄は作らない。値は空）。空を断られたら鍵の欄は作らず、5章の各文の「= のすぐ右をクリック」を「いちばん下の行の最後で Enter を押し、`〈名前〉=` と半角で打ってから」に読みかえる
+   - 設定：`WP_SITE`（https://〜、最後の / なし）、`WP_USER`、`SNS_PASS`（合言葉。**必ずこの枠で入れる。お客さんに打ち込ませない**。お客さん自身の開始リンクにすでに入っている文字なので、許可の枠に出ても問題ない。チャットの文には書かない）、**値は、最初の文の『合言葉:』のすぐ後ろの1語だけ**）、それから鍵の欄を、見本の文字を入れて作る：`WP_APP_PASSWORD`＝`ここにブログのパスワードを貼る`、`THREADS_TOKEN`＝`ここにスレッズの鍵を貼る`、`FB_GRAPH_TOKEN`＝`ここにインスタとFacebookの鍵を貼る`、`X_API_KEY`＝`ここにXの鍵1を貼る`、`X_API_SECRET`＝`ここにXの鍵2を貼る`、`X_ACCESS_TOKEN`＝`ここにXの鍵3を貼る`、`X_ACCESS_TOKEN_SECRET`＝`ここにXの鍵4を貼る`（**この見本の文字をそのまま入れる**。お客さんは見本をなぞって貼りかえるだけで済む。**選ばれなかったSNSの欄は作らない**。見本の文字のままの欄は、部品が「鍵なし」として扱う）。最初の文に `SNS_KIT_BRANCH=` があれば、それも同じ値で入れる
    - repositories：このリポジトリ `nihongo1000/ichigyo-sns`（公開。お客さんの置き場所は作らない）
 3. 断られたら、もう一度は聞かない。お客さんへ「先ほどの枠で、ボタンを押してください」とだけ書く。
 
 ## 5. 鍵を作って貼ってもらう（お客さんの作業はここだけ）
 環境の設定画面への行き方（毎回この文で書く）：「https://claude.ai/code を**新しいタブで**開き、左上の『＋ 新規作成』を押す → 入力の枠のすぐ下の、環境の名前（『Default』など）を押す →『環境を選択』を押す → 一覧の『〈環境の名前〉』（見当たらなければ『その他』にマウスを乗せ、右に出た一覧の中）にマウスを乗せると、右に歯車が出るので押す（『新しい環境』は押さない）→『クラウド環境を編集』の画面のいちばん下の『環境変数』を押す」
-貼り方（毎回この文で書く）：「『〈名前〉=』の = のすぐ右をクリックして、右クリック →『貼り付け』→ 右下の黒い『変更を保存』」
+貼り方（毎回この文で書く）：「『〈名前〉=』の右の『ここに…を貼る』の文字を、マウスでなぞって全部選び、右クリック →『貼り付け』（見本の文字と入れかわります）→ 右下の黒い『変更を保存』」
+- 見本の文字が無い欄（前の版で作った環境など）のときは、「『〈名前〉=』の = のすぐ右をクリックして、右クリック →『貼り付け』」と書く。欄そのものが無ければ「いちばん下の行の最後で Enter を押し、`〈名前〉=` と半角で打ってから貼る」。
 
 順番は 5-1 → 5-2（スレッズを使うとき）→ 5-3（インスタか Facebook を使うとき）→ 5-4（X を使うとき）。使わないSNSの分は送らない。1つの番号を1通〜2通にし、「できた」が来てから次を送る。
 
@@ -166,14 +175,16 @@ I post one 4-panel comic from my own blog articles to my own account once a day.
 
 ## 6. 続きのリンクを渡す（鍵は、あとから始めたセッションにしか入らないため）
 次の形でリンクを作り（値はURL用に変換する）、お客さんへ1通：
-`https://claude.ai/code?environment=<環境の名前>&repositories=nihongo1000/ichigyo-sns&prompt=SETUP_LINK.md の7章から続けてください。お客さんへの文も途中経過も、すべて日本語で書いてください。答え: 〈3章の答えの1行〉 スレッズの鍵を作った日: 〈日付〉`
+`https://claude.ai/code?environment=<環境の名前>&repositories=nihongo1000/ichigyo-sns&prompt=GitHub の公開リポジトリ nihongo1000/ichigyo-sns を使います。このセッションに無ければ git clone https://github.com/nihongo1000/ichigyo-sns.git /home/user/ichigyo-sns で取り、ほかのリポジトリには触れないでください。その中の SETUP_LINK.md の7章から続けてください。お客さんへの文も途中経過も、すべて日本語で書いてください。答え: 〈3章の答えの1行〉 スレッズの鍵を作った日: 〈日付〉 〈あれば SNS_KIT_BRANCH=〈枝の名前〉〉 合言葉: 〈合言葉〉`
+- `repositories=` が効かない画面もあるので、prompt の最初の文は必ず残す。`合言葉:` はいつも最後に付ける（環境の欄に入らなかったとき、7章で入れ直すため）。
 「最後に、このリンクを押して、出てきた画面で Enter を押してください。新しいタブで開きます。そこから先は、その画面の私が仕上げます。この画面は閉じても残しても大丈夫です（もう使いません）→ 〈リンク〉」
 - このセッションの仕事はここまで（まだブログの鍵が無いので記録はしまわない。答えはリンクの文に入っている）。
 
 ## 7. 接続の確認（新しいセッション）
-- まず R章（全部）。`python3 -I sns_state.py check` で `STATE_OK` が出るか確かめる（401 は下の WordPress 401 と同じ）。最初の指示の文の `答え:` の後ろを `$W/ANSWERS.md` に書き写し、`DONE 1`〜`DONE 6` を `$W/STATE.md` に足して push。
+- まず、環境に `SNS_PASS` があるか名前だけ確かめる（`[ -n "$SNS_PASS" ] && echo PASS_SET`）。無いとき、またはR章の openssl がその値で失敗するときは、最初の文の `合言葉:` の後ろを `export SNS_PASS=...`（表示しない）で使い、`update_environment` で環境にも入れる（お客さんは許可のボタンだけ。お客さんに合言葉を入れてもらう文は書かない）。
+- それから R章（全部）。`python3 -I /tmp/snskit/sns_state.py check` で `STATE_OK` が出るか確かめる（401 は下の WordPress 401 と同じ）。最初の指示の文の `答え:` の後ろを `$W/ANSWERS.md` に書き写し、`DONE 1`〜`DONE 6` を `$W/STATE.md` に足して push。
 - `config.json` を仮に作る（`config.template.json` から。`site_url` は環境の `WP_SITE`、`skip_platforms` は答えのSNSに無いもの、`keys` はそのまま、`key_expiry.threads` はスレッズの鍵を作った日＋60日、ほかの < > は 8章で埋める。`manga_pattern` は仮に `manga`）。
-- `cd $W && python3 -I scripts/check_keys.py`（X を使うなら `--x` を付ける。読み取り1回分、約1円）。鍵の値は確かめるときも表示しない。
+- `cd /home/user/sns-work && python3 -I scripts/check_keys.py`（X を使うなら `--x` を付ける。読み取り1回分、約1円）。鍵の値は確かめるときも表示しない。
 - 表示された「ページ『〈名前〉』 fb_page_id=… ig_user_id=…」から、使うページの数字を `config.json` の `fb_page_id`・`ig_user_id` に書く。ページが複数なら、名前がブログ名に近いもの、インスタがつながっているものを選び、選んだことを1行で書く。もう一度 check_keys → **全部OK**。
 - 「Metaの鍵」の行の **期限** と **データアクセス期限** のうち早いほう（「期限なし」は無視）を `key_expiry.meta_data_access` に書く。
 - **ブログのサーバーが海外からのつながりを止めている**（WordPress の確認で 403、または『国外IP』『アクセス制限』の画面が返る）ときは、サーバーの種類を調べて（ネームサーバー・管理画面の作り）、1通で案内する。
@@ -194,7 +205,7 @@ I post one 4-panel comic from my own blog articles to my own account once a day.
 **8-1. 4コマを見つける（聞かずに）**
 - REST（`<WP_SITE>/wp-json/wp/v2/posts?per_page=30&_fields=id,link,content`）で新しい記事を見て、4コマらしい画像（横長か正方形の漫画。記事の最後の見出しの後に多い）のファイル名に共通して入る文字を見つけ、`manga_pattern` にする（例：`manga_end`、`manga`、`4koma`）。記事の最後の見出しの後に無ければ `manga_scope` を `any`。
 - 迷ったら画像を2〜3枚取って目で見る。
-- `python3 -I scripts/pick_post.py POSTED.md 5` で候補が出ること。**4コマ入りの記事が1本も無いとき**は、お客さんへ「ブログに4コマ漫画の入った記事が見つかりませんでした。4コマ入りの記事ができたら、この画面に『4コマできた』と送ってください」と送り、`STATE.md` に `WAIT_MANGA` と書いて push して止まる（予約は作らない）。
+- `python3 -I scripts/pick_post.py POSTED.md 5` で候補が出ること。候補の `kind` が `manga` なら4コマの記事、`eyecatch` なら4コマが無くてアイキャッチで出す記事（`config.json` の `no_manga` が `eyecatch`。標準）。**4コマの記事が1本も無くても、アイキャッチのある記事があればそのまま進める**（お客さんに聞かない。10章のあいさつで1行伝える）。4コマらしい画像が見つからないブログでは `manga_pattern` は `manga` のままでよい。**候補が1本も無いとき**（4コマもアイキャッチも無い）だけ、お客さんへ「ブログに、投稿に使える画像の入った記事が見つかりませんでした。アイキャッチ画像か4コマ漫画の入った記事ができたら、この画面に『記事できた』と送ってください」と送り、`STATE.md` に `WAIT_MANGA` と書いて push して止まる（予約は作らない）。
 
 **8-2. 書き方を決める（聞かずに）**
 - ブログの記事5〜10本から、テーマ・読者・語り口を読み取り、`config.json` の `site_name`・`brand_tag`（`#` ＋ブログ名を短く）・`fb_page_name`・`axis`・`reader`・`narrator`（標準は「少し先を行く先輩。上から目線・説教・コンサル調にしない」）・`priority_words`（ブログの大事な語を2〜3個）・`product_rule`（空）を埋める。`handle` は check_keys に出たユーザー名（インスタかスレッズ。X だけなら X）。
@@ -202,23 +213,24 @@ I post one 4-panel comic from my own blog articles to my own account once a day.
 - `examples/` の見本は型だけ（〈 〉の所を、そのブログの記事と4コマから埋める）。見本の言葉やハッシュタグをそのまま使わない。見本のファイルは書きかえない。
 
 **8-3. 1本目を出す（文面を見せずに出してよい。作り手の方針）**
-- `ROUTINE.md` の 0〜5 をそのとおりにやる（`$K` は `$W`）。インスタの6枚は必ず目で見て確かめる。
+- `ROUTINE.md` の 0〜5 をそのとおりにやる（`$K` は `$W`）。インスタの組の画像（4コマなら6枚、アイキャッチなら要点の数＋2枚）は必ず目で見て確かめる。
 - 出したらお客さんへ：「1本目を出しました。〈SNSごとのURL〉。明日から毎日〈昼の時刻〉ごろに自動で出ます。気になる所があれば、この画面に書いてください（例：『もっとやさしい言葉で』）」
 - お客さんから直しの希望が来たら `RULES.md` に足して push（次の投稿から効く）。出したものは消さない（お客さんが消したいと言ったら、消し方を1つずつ案内する）。
 `DONE 8` → push。
 
 ## 9. 定期実行
-- **このセッションに向けて** `create_trigger` で作る（`create_new_session_on_fire` は付けない）。時刻はお客さんの国の、昼（11:00〜13:59）と夜（19:00〜21:59）。分は 00/30 を避け、ブログごとに変える（ドメインの文字数などから決める）。
-  - 昼（毎日）：名前「sns 〈ドメイン〉 昼」、指示文：「【毎日の昼の投稿】`SETUP_LINK.md` の0章とR章を読み、R章を実行してから、`$W/ROUTINE.md` の 0〜5 のとおりに、使うSNSへ4コマを1本ずつ出してください（`$K` は `$W`）。書き方は `$W/RULES.md` が正です。本文に URL を入れてよいのは Facebook だけ。今日の行が `POSTED.md` にあれば何もしない。お客さんに質問して止まらず、迷った点は報告に書く。最後に R章の『終わり』（`sns_state.py push`、`STATE_SAVED`）を必ず行い、日本語3〜5行で報告（記事名、SNSごとのURL、失敗があれば理由とお客さんにやってほしいこと）。鍵の期限が2週間以内なら12章の案内を添える」
-  - 夜（毎日。スレッズを使うときだけ）：名前「sns 〈ドメイン〉 夜」、指示文：「【毎日の夜の投稿】`SETUP_LINK.md` の0章とR章を読み、R章を実行してから、`$W/ROUTINE.md` の『夜のスレッズ「失敗あるある」』のとおりに、スレッズに文字だけを1本出してください。ほかのSNSには出さない。URL・ハッシュタグなし。今晩の行が `POSTED.md` の夜の表にあれば何もしない。最後に R章の『終わり』を必ず行い、日本語2〜3行で報告」
+- **このセッションに向けて** `create_trigger` で作る（`create_new_session_on_fire` は付けない）。時刻はお客さんの国の、昼（11:00〜13:59）と夜（19:00〜21:59）。分は 00/30 を避ける。**作る前に `list_triggers`（enabled true・recurring true。続きがあれば cursor で最後まで）で、このアカウントの動いている定期実行の時刻を全部見て、同じ曜日に動くどの予約とも30分以上あける**（ブログの自動投稿などと重なると、使用量の上限に当たったり片方が動かなかったりするため）。空いていなければ、昼は 14時台・10時台、夜は 22時台・18時台の順に探す。止めてある予約は数えない。ほかの予約は動かさない・変えない。
+  - 昼（毎日）：名前「sns 〈ドメイン〉 昼」、指示文：「【毎日の昼の投稿】公開リポジトリ nihongo1000/ichigyo-sns の `SETUP_LINK.md`（このセッションに無ければ git clone https://github.com/nihongo1000/ichigyo-sns.git /home/user/ichigyo-sns で取る）の0章とR章を読み、R章を実行してから、`$W/ROUTINE.md` の 0〜5 のとおりに、使うSNSへ記事を1本ずつ出してください（4コマのある記事は4コマ、無い記事はアイキャッチで）（`$K` は `$W`）。書き方は `$W/RULES.md` が正です。本文に URL を入れてよいのは Facebook だけ。今日の行が `POSTED.md` にあれば何もしない。お客さんに質問して止まらず、迷った点は報告に書く。最後に R章の『終わり』（`sns_state.py push`、`STATE_SAVED`）を必ず行い、日本語3〜5行で報告（記事名、SNSごとのURL、失敗があれば理由とお客さんにやってほしいこと）。鍵の期限が2週間以内なら12章の案内を添える」
+  - 夜（毎日。スレッズを使うときだけ）：名前「sns 〈ドメイン〉 夜」、指示文：「【毎日の夜の投稿】公開リポジトリ nihongo1000/ichigyo-sns の `SETUP_LINK.md`（このセッションに無ければ git clone https://github.com/nihongo1000/ichigyo-sns.git /home/user/ichigyo-sns で取る）の0章とR章を読み、R章を実行してから、`$W/ROUTINE.md` の『夜のスレッズ「失敗あるある」』のとおりに、スレッズに文字だけを1本出してください。ほかのSNSには出さない。URL・ハッシュタグなし。今晩の行が `POSTED.md` の夜の表にあれば何もしない。最後に R章の『終わり』を必ず行い、日本語2〜3行で報告」
 - 作ったら、昼の予約は手動で動かさない（8章で1本出したので、同じ日に2本になる）。夜の予約は、今日の夜の行が無ければ1回だけ手動で動かして確かめてよい。結果を `STATE.md` に書いて push。
 - 鍵をあとで変えたら、6章の形のリンクで新しいセッションを開いてもらい、11章のとおりそこで定期実行を作り直す。
 `DONE 9` → push。
 
 ## 10. 最後のあいさつ
 - 先に `set_session_title` でこの画面の名前を「〈環境の名前〉 担当（消さないでください）」にする。
-「設定が終わりました。毎日〈昼の時刻〉ごろに4コマを〈使うSNS〉へ、〈スレッズを使うなら：夜〈夜の時刻〉ごろにスレッズへ文字だけの投稿を〉1本ずつ自動で出します（パソコンは消えていても大丈夫です）。
-これからは、claude.ai/code の左の一覧にある『〈環境の名前〉 担当（消さないでください）』がこのSNSの担当の画面です。報告もここに届き、『今すぐ1本出して』『夜の投稿はやめて』などの相談もここでできます。
+「設定が終わりました。毎日〈昼の時刻〉ごろに、ブログの記事の4コマ漫画（4コマが無い記事はアイキャッチ画像）を〈使うSNS〉へ、〈スレッズを使うなら：夜〈夜の時刻〉ごろにスレッズへ文字だけの投稿を〉1本ずつ自動で出します（パソコンは消えていても大丈夫です）。
+これからは、claude.ai/code の左の一覧にある『〈環境の名前〉 担当（消さないでください）』がこのSNSの担当の画面です。報告もここに届き、『今すぐ1本出して』『夜の投稿はやめて』などの相談もここでできます。投稿をしばらく止めたいときは『SNSの投稿を止めて』、また始めるときは『SNSの投稿を再開して』と送ってください。
+〈X を選ばなかったなら：X（旧Twitter）にも出したくなったら、『Xを足して』と送ってください（投稿1件ごとに約2円かかります）。〉〈ほかに選ばなかったSNSがあれば：〈SNSの名前〉も、あとから『〈SNSの名前〉を足して』で足せます。〉
 〈Xを使うなら：X のクレジットが無くなると X だけ止まります。そのときはここでお知らせします。〉
 スレッズの鍵は〈日付〉ごろ、インスタ・Facebook の鍵は〈日付〉ごろに作り直しが要ります。2週間前からここでお知らせします。
 ブログの『固定ページ』にある『SNS自動投稿の記録（消さないでください・非公開）』は、設定と記録の保管用なので消さないでください。
@@ -226,14 +238,18 @@ I post one 4-panel comic from my own blog articles to my own account once a day.
 
 ## 10-1. お客さんがこの画面で頼んだとき
 - 「今すぐ1本出して」：今日の昼の行が `POSTED.md` に無ければ、昼の手順で1本（下請けに出す）。あれば「今日はもう出しています。明日の〈時刻〉に次が出ます」。
+- **「SNSの投稿を止めて」**（「自動投稿を止めて」「全部止めて」なども同じ）：先にR章の準備をしてから、`date > /home/user/sns-work/sns_off.txt` → 記録をしまう（push、`STATE_SAVED`）。返事は1行：「SNSの自動投稿を止めました。『SNSの投稿を再開して』と送るまで、何も出しません」。予約は消さない・止めない（予約の時刻に動いても、何もせずに終わる）。
+- **「SNSの投稿を再開して」**：先にR章 → `rm -f /home/user/sns-work/sns_off.txt` → push。返事は1行：「再開しました。次は〈昼か夜の時刻〉に出します」。
+- 「今は止まっている？」：R章 → `sns_off.txt` があるかを見て、1行で答える。
+- **「Xを足して」「〈SNS〉を足して」**（最初に選ばなかったSNSをあとから使う）：X なら先に「X は投稿1件ごとに約2円かかります（前払い5ドルで約300回分）。進めてよければ『はい』と送ってください」と1回だけ確かめる（お金がかかるため）。それから `update_environment` でそのSNSの鍵の欄を見本の文字つきで足し（4章と同じ。お客さんは確認の枠のボタンだけ）、5章の該当の番号（スレッズ 5-0・5-A・5-2／インスタ・Facebook 5-0・5-A・5-3／X 5-4）を送る →「できた」のあと6章の形のリンク（`答え:` は新しいSNSの並び）→ 新しい画面の7章で `skip_platforms` からそのSNSを外して check_keys → 11章のとおり定期実行を作り直す。
 - 「〇〇（SNS）をやめて」：`config.json` の `skip_platforms` に足して push。「〇〇を再開して」：外して push（鍵が無ければ 5章の該当の番号から）。夜をやめるときは夜の予約を `update_trigger` で止める（消さない）。
 - 「時刻を変えて」：`update_trigger` で変える。
 - 書き方の希望：`RULES.md` に足して push。
 
 ## 11. 作り直し（担当の画面が止まった・消えた・重くなったとき）
 - お客さんが開始リンクをもう一度押したとき、3章の答えから決めた〈環境の名前〉の環境がもうあれば、4章・5章は飛ばして6章の続きのリンクだけ渡す（鍵はその環境に残っている。設定や記録はブログから戻る）。
-- 7章で `STATE.md` に `DONE 9` があれば、それは作り直し。設定や記録はブログから戻っているので、8章は飛ばし、`list_triggers` で前の画面に結び付いた「sns 〈ドメイン〉」の定期実行を `delete_trigger` で消してから、9章のとおりこの画面に作り直す。お客さんには「担当の画面を新しくしました。前の画面は消して大丈夫です」とだけ伝える。
-- `WAIT_MANGA` があり、お客さんが「4コマできた」と送ったら、8章から。
+- 7章で `STATE.md` に `DONE 9` があれば、それは作り直し（最初の文の `答え:` にSNSの並びがあれば、`config.json` の `skip_platforms` をそれに合わせる）。設定や記録はブログから戻っているので、8章は飛ばし、`list_triggers` で前の画面に結び付いた「sns 〈ドメイン〉」の定期実行を `delete_trigger` で消してから、9章のとおりこの画面に作り直す。お客さんには「担当の画面を新しくしました。前の画面は消して大丈夫です」とだけ伝える。
+- `WAIT_MANGA` があり、お客さんが「記事できた」「4コマできた」と送ったら、8章から。
 
 ## 12. 鍵の作り直し（期限の2週間前から、毎日の報告に1行添える）
 - スレッズの鍵（`key_expiry.threads`）：報告に「スレッズの鍵の作り直しが近づいています。この画面で『スレッズの鍵を作り直す』と送ってください」。送られたら 5-2 の2通目だけを送り、「できた」のあと6章の形のリンク（`スレッズの鍵を作った日:` に今日）→ 新しい画面で 7章（check_keys と期限の書きかえ）→ 11章のとおり定期実行を作り直す。
